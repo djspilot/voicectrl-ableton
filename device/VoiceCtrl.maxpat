@@ -211,7 +211,7 @@
         "box": {
           "id": "obj-node",
           "maxclass": "newobj",
-          "text": "node.script \"/Users/ds/Documents/Max for Live/VoiceCtrl/VoiceCtrl.js\" @autostart 1 @watch 1",
+          "text": "node.script \"src/index.js\" @autostart 1 @watch 1",
           "patching_rect": [
             20.0,
             280.0,
@@ -355,9 +355,58 @@
     "styles": [],
     "dependency_cache": [
       {
-        "name": "VoiceCtrl.js",
-        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl",
-        "patcherrelativepath": ".",
+        "name": "index.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src",
+        "patcherrelativepath": "./src",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "config.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src",
+        "patcherrelativepath": "./src",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "logger.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src",
+        "patcherrelativepath": "./src",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "pipeline.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src",
+        "patcherrelativepath": "./src",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "server.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src",
+        "patcherrelativepath": "./src",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "ableton.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src/services",
+        "patcherrelativepath": "./src/services",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "ollama.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src/services",
+        "patcherrelativepath": "./src/services",
+        "type": "TEXT",
+        "implicit": 1
+      },
+      {
+        "name": "whisper.js",
+        "bootpath": "/Users/ds/Documents/Max for Live/VoiceCtrl/src/services",
+        "patcherrelativepath": "./src/services",
         "type": "TEXT",
         "implicit": 1
       },

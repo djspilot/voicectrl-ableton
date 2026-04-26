@@ -8,7 +8,7 @@
   :root { --bg:#151515; --card:#222; --line:#343434; --fg:#f4efe6; --muted:#9a9488; --ok:#60d394; --bad:#ff5560; --warn:#f0a93b; }
   * { box-sizing:border-box; }
   body { margin:0; background:radial-gradient(circle at 20% 0,#2d2418,#151515 42%); color:var(--fg); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  header { padding:22px 24px 12px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  header { padding:22px 24px 12px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   h1 { margin:0; font:800 24px/1.1 ui-sans-serif,system-ui,sans-serif; letter-spacing:-.03em; }
   button,input { background:#2d2d2d; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:9px 10px; }
   button { cursor:pointer; font-weight:800; }
@@ -20,55 +20,76 @@
   .lamp { width:10px; height:10px; border-radius:50%; margin-top:3px; background:var(--bad); box-shadow:0 0 14px var(--bad); }
   .lamp.ok { background:var(--ok); box-shadow:0 0 14px var(--ok); }
   .label { font-weight:800; }
-  .detail { color:var(--muted); overflow-wrap:anywhere; }
+  .detail { color:var(--muted); overflow-wrap:anywhere; font-size:11px; }
   pre { margin:0; white-space:pre-wrap; overflow:auto; max-height:360px; color:#ddd; }
   .fix { padding:8px 10px; border-left:3px solid var(--warn); background:#2b2418; margin:6px 0; border-radius:8px; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .pill { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; color:var(--muted); margin:2px; }
+  .pill { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; color:var(--muted); margin:2px; font-size:11px; }
+  .pill.ext { border-color:var(--warn); color:var(--warn); }
+  .pill.ok { border-color:var(--ok); color:var(--ok); }
+  .meta { color:var(--muted); font-size:11px; }
   @media (max-width:800px) { .card { grid-column:1/-1; } header { align-items:flex-start; flex-direction:column; } }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>VoiceCtrl Debug Engine</h1>
+    <h1>VoiceCtrl Debug</h1>
     <div id="summary" class="detail">loading...</div>
   </div>
   <div class="row">
     <input id="testText" value="set the tempo to 120" size="28" />
-    <button id="selfBtn">Run Self-Test</button>
+    <button id="selfBtn">Self-Test</button>
     <button id="refreshBtn">Refresh</button>
   </div>
 </header>
 <main>
   <section class="card"><div class="title">Health Checks</div><div id="checks"></div></section>
   <section class="card"><div class="title">Fixes</div><div id="fixes"></div></section>
-  <section class="card"><div class="title">Last Request</div><pre id="last"></pre></section>
-  <section class="card"><div class="title">Self-Test Result</div><pre id="selftest">not run yet</pre></section>
-  <section class="card wide"><div class="title">Tools</div><div id="tools"></div></section>
-  <section class="card wide"><div class="title">Recent Logs</div><pre id="logs"></pre></section>
+  <section class="card wide"><div class="title">Tools <span id="toolCount" class="meta"></span></div><div id="tools"></div></section>
+  <section class="card wide"><div class="title">Last 50 Log Entries</div><pre id="logs"></pre></section>
+  <section class="card wide"><div class="title">Last Self-Test</div><pre id="selftest">not run yet</pre></section>
 </main>
 <script>
 const $ = id => document.getElementById(id);
-function renderCheck(c) {
-  return `<div class="check"><span class="lamp ${c.ok ? 'ok' : ''}"></span><span class="label">${c.label}</span><span class="detail">${escapeHtml(c.detail || '')}</span></div>`;
-}
+function lamp(ok) { return `<span class="lamp${ok ? ' ok' : ''}"></span>`; }
 function escapeHtml(s) { return String(s).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])); }
 async function refresh() {
   const r = await fetch('/diagnostics');
   const j = await r.json();
-  const ok = (j.checks || []).filter(x => x.ok).length;
-  $('summary').textContent = `${ok}/${(j.checks || []).length} checks OK | pid=${j.pid} | logs=${j.log_dir}`;
-  $('checks').innerHTML = (j.checks || []).map(renderCheck).join('');
-  $('fixes').innerHTML = (j.fixes || []).length ? j.fixes.map(f => `<div class="fix">${escapeHtml(f)}</div>`).join('') : '<span class="detail">No fixes needed.</span>';
-  $('last').textContent = JSON.stringify(j.last || {}, null, 2);
-  $('tools').innerHTML = (j.tools || []).map(t => `<span class="pill">${escapeHtml(t.tool)} -> ${escapeHtml(t.ableton_command)} ${t.upstream_supported ? 'ok' : 'extended'}</span>`).join('');
-  $('logs').textContent = (j.recent_logs || []).map(x => `[${x.ts}] ${x.level.toUpperCase()} ${x.msg}`).join('\n');
+  const checks = j.checks || [];
+  const okCount = checks.filter(x => x.ok).length;
+  const logOk = j.log_healthy;
+  $('summary').innerHTML =
+    `<span class="${logOk ? 'ok' : 'bad'}">${logOk ? 'logs ok' : 'log error: ' + escapeHtml(j.log_file_error||'')}</span>` +
+    ` | ${okCount}/${checks.length} checks OK | pid=${j.pid} | rid=${j.rid || '—'}`;
+
+  $('checks').innerHTML = checks.map(c =>
+    `<div class="check">${lamp(c.ok)}$<span class="label">${escapeHtml(c.label)}</span>$<span class="detail">${escapeHtml(c.detail || '')}</span></div>`
+  ).join('');
+
+  const fixes = j.fixes || [];
+  $('fixes').innerHTML = fixes.length
+    ? fixes.map(f => `<div class="fix">${escapeHtml(f)}</div>`).join('')
+    : '<span class="detail">All good — no fixes needed.</span>';
+
+  const tools = j.tools || [];
+  $('toolCount').textContent = `(${tools.length} tools)`;
+  $('tools').innerHTML = tools.map(t =>
+    `<span class="pill${t.upstream_supported ? ' ok' : ' ext'}">` +
+    `${escapeHtml(t.tool)} → ${escapeHtml(t.ableton_command)}</span>`
+  ).join('');
+
+  const logs = (j.recent_logs || []);
+  $('logs').textContent = logs.length
+    ? logs.map(x => `[${x.ts}] ${x.level.toUpperCase()} [${x.rid || '—'}] ${x.msg}`).join('\n')
+    : '(no log entries)';
 }
 async function selftest() {
   $('selftest').textContent = 'running...';
   const r = await fetch('/selftest', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ text:$('testText').value }) });
-  $('selftest').textContent = JSON.stringify(await r.json(), null, 2);
+  const j = await r.json();
+  $('selftest').textContent = JSON.stringify(j, null, 2);
   await refresh();
 }
 $('refreshBtn').onclick = refresh;

@@ -1,12 +1,10 @@
 # --- build outputs ----------------------------------------------------
-plugin/build/
 build/
 *.o
 *.a
 *.dylib
 *.so
 *.dll
-JuceLibraryCode/
 
 # --- macOS ------------------------------------------------------------
 .DS_Store

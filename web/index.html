@@ -77,6 +77,12 @@
   .dot { width:6px; height:6px; border-radius:50%; background:#444; }
   .dot.on  { background:#60d394; }
   .dot.off { background:var(--err); }
+  .rid {
+    position:absolute; left:8px; top:7px;
+    color:#6b9fd4; font-size:9px; font-weight:800;
+    max-width:80px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
   .debugLink {
     position:absolute; left:8px; top:7px;
     color:#9ac7ff; font-size:10px; font-weight:800;
@@ -140,21 +146,31 @@ const bars  = document.getElementById("bars").querySelectorAll(".bar");
 const dotA  = document.getElementById("dotAbleton");
 const dotO  = document.getElementById("dotOllama");
 const debugText = document.getElementById("debugText");
-document.getElementById("debugLink").href = HOST + "/debug.html";
+const ridEl = document.getElementById("debugLink");
+ridEl.href = HOST + "/debug.html";
 if (params.get("embed") === "1") stage.classList.add("embed");
 
 let recorder = null, chunks = [], stream = null, audioCtx = null, analyser = null, raf = null;
-let state = "idle";       // idle | listening | thinking | error
+let state = "idle";
 let recording = false;
+let lastRid = "";
+let history = [];
 
-function userError(message) {
+function userError(message, rid) {
   if (!message) return { label:"Failed", sub:"open Debug for details" };
-  if (message.includes("AbletonMCP connection failed") || message.includes("ECONNREFUSED")) {
-    return { label:"Ableton offline", sub:"Enable AbletonMCP in Live Preferences" };
+  const s = rid ? `[${rid.slice(0,8)}] ` : "";
+  if (message.includes("ECONNREFUSED") || message.includes("connection failed")) {
+    return { label:"Ableton offline", sub:s + "Enable AbletonMCP in Live Preferences" };
   }
-  if (message.includes("Ollama")) return { label:"Ollama error", sub:message };
-  if (message.includes("whisper")) return { label:"Whisper error", sub:message };
-  return { label:"Failed", sub:message };
+  if (message.includes("timeout")) {
+    return { label:"Ableton timeout", sub:s + "Command timed out — Live busy?" };
+  }
+  if (message.includes("protocol")) {
+    return { label:"Ableton error", sub:s + "Bad response from AbletonMCP" };
+  }
+  if (message.includes("Ollama") || message.includes("ollama")) return { label:"Ollama error", sub:s + message };
+  if (message.includes("whisper")) return { label:"Whisper error", sub:s + message };
+  return { label:"Failed", sub:s + message };
 }
 
 function setState(next, l, s) {
@@ -169,13 +185,17 @@ async function refreshStatus() {
   try {
     const r = await fetch(HOST + "/status"); const j = await r.json();
     dotA.className = "dot " + (j.ableton ? "on" : "off");
-    const okService = j.service === "voicectrl-node";
-    dotO.className = "dot " + (okService && j.ollama_ok ? "on" : "off");
-    if (!okService) setState("error", "Wrong backend", "port 8765 used by another service");
-    else if (state === "idle" && (!j.ableton || !j.ollama_ok)) {
-      const info = !j.ableton ? userError(j.ableton_error || "AbletonMCP offline") : userError(j.ollama_error || "Ollama model unavailable");
-      sub.textContent = info.sub;
-      sub.title = !j.ableton ? (j.ableton_error || "") : (j.ollama_error || "");
+    dotO.className = "dot " + (j.ollama_ok ? "on" : "off");
+    if (j.service !== "voicectrl-node") {
+      setState("error", "Wrong backend", "port 8765 used by another service");
+    } else if (state === "idle") {
+      if (!j.ableton) {
+        const info = userError(j.ableton_error || "AbletonMCP offline");
+        sub.textContent = info.sub; sub.title = j.ableton_error || "";
+      } else if (!j.ollama_ok) {
+        const info = userError(j.ollama_error || "Ollama unavailable");
+        sub.textContent = info.sub; sub.title = j.ollama_error || "";
+      }
     }
   } catch { dotA.className = "dot off"; dotO.className = "dot off"; }
 }
@@ -183,14 +203,14 @@ async function refreshStatus() {
 async function refreshDebug() {
   try {
     const r = await fetch(HOST + "/debug"); const j = await r.json();
-    const lines = (j.logs || []).slice(-14).map(x => `[${x.level}] ${x.msg}`);
+    const lines = (j.recent_logs || []).slice(-50).map(x => `[${x.level[0].toUpperCase()}] ${x.msg}`);
     debugText.textContent =
-      `service=${j.service} pid=${j.pid} uptime=${j.uptime_s}s\n` +
+      `service=${j.service} pid=${j.pid} uptime=${j.uptime_s}s ` +
+      `log=${j.log_healthy ? "ok" : "ERR: " + (j.log_file_error || "unknown")}\n` +
       `root=${j.root}\n` +
-      `model=${j.model_path ? "ok" : "?"} whisper=${j.whisper_model_exists} ffmpeg=${j.ffmpeg_exists} whisper-cli=${j.whisper_cli_exists}\n` +
-      `ableton_port=${j.ableton_port} api_port=${j.api_port}\n\n` +
-      `last="${j.last_transcript || ""}"\n` +
-      `error=${j.last_error || ""}\n\n` +
+      `model=${j.paths?.whisper_model ? "ok" : "?"} ` +
+      `whisper=${j.exists?.whisper_cli ? "ok" : "MISSING"} ` +
+      `ffmpeg=${j.exists?.ffmpeg ? "ok" : "MISSING"}\n` +
       lines.join("\n");
   } catch (e) {
     debugText.textContent = "debug unavailable: " + e.message;
@@ -198,8 +218,8 @@ async function refreshDebug() {
 }
 refreshStatus();
 refreshDebug();
-setInterval(refreshStatus, 5000);
-setInterval(refreshDebug, 2000);
+setInterval(refreshStatus, 3000);
+setInterval(refreshDebug, 1000);
 
 function animate() {
   if (state === "listening" && analyser) {
@@ -219,7 +239,7 @@ function animate() {
       const v = Math.abs(Math.sin((Date.now()/250)+i*0.7));
       b.style.height = (18 + v*max*0.6) + "px";
     });
-  } else { // idle / error
+  } else {
     bars.forEach(b => b.style.height = "");
   }
   raf = requestAnimationFrame(animate);
@@ -258,13 +278,20 @@ async function onStop() {
     const fd = new FormData(); fd.append("audio", blob, "speech.webm");
     const r = await fetch(HOST + "/listen", { method:"POST", body: fd });
     const j = await r.json();
+    lastRid = j.request_id || "";
+    // persist history
+    history.push({ ts: new Date().toISOString(), rid: lastRid, transcript: j.transcript });
+    if (history.length > 20) history.shift();
+
     if (j.transcript) {
-      const ok = (j.actions||[]).every(a=>!a.error);
-      const firstError = (j.actions||[]).find(a=>a.error)?.error || "";
-      const friendly = userError(firstError);
+      const errors = (j.actions||[]).filter(a=>a.error);
+      const ok = errors.length === 0;
+      const firstError = errors[0]?.error || "";
+      const friendly = userError(firstError, lastRid);
+      const toolNames = (j.actions||[]).map(a=>a.tool).join(", ");
       setState(ok ? "idle" : "error",
                ok ? (j.transcript.length<32 ? j.transcript : "Done") : friendly.label,
-               ok ? (j.assistant || (j.actions||[]).map(a=>a.tool).join(", ")) : friendly.sub);
+               ok ? (j.assistant || toolNames) : friendly.sub);
     } else {
       setState("idle", "Click to speak", "(no speech)");
     }

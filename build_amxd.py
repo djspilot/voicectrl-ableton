@@ -48,7 +48,7 @@ def build_patcher() -> dict:
     through untouched) plus a ``jweb`` object showing our local web UI in
     presentation mode.
     """
-    node_path = str(ROOT / "VoiceCtrl.js")
+    node_path = "src/index.js"
     return {
         "patcher": {
             "fileversion": 1,
@@ -234,9 +234,58 @@ def build_patcher() -> dict:
             "styles": [],
             "dependency_cache": [
                 {
-                    "name": "VoiceCtrl.js",
-                    "bootpath": str(ROOT),
-                    "patcherrelativepath": ".",
+                    "name": "index.js",
+                    "bootpath": str(ROOT / "src"),
+                    "patcherrelativepath": "./src",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "config.js",
+                    "bootpath": str(ROOT / "src"),
+                    "patcherrelativepath": "./src",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "logger.js",
+                    "bootpath": str(ROOT / "src"),
+                    "patcherrelativepath": "./src",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "pipeline.js",
+                    "bootpath": str(ROOT / "src"),
+                    "patcherrelativepath": "./src",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "server.js",
+                    "bootpath": str(ROOT / "src"),
+                    "patcherrelativepath": "./src",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "ableton.js",
+                    "bootpath": str(ROOT / "src" / "services"),
+                    "patcherrelativepath": "./src/services",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "ollama.js",
+                    "bootpath": str(ROOT / "src" / "services"),
+                    "patcherrelativepath": "./src/services",
+                    "type": "TEXT",
+                    "implicit": 1,
+                },
+                {
+                    "name": "whisper.js",
+                    "bootpath": str(ROOT / "src" / "services"),
+                    "patcherrelativepath": "./src/services",
                     "type": "TEXT",
                     "implicit": 1,
                 },

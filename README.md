@@ -1,6 +1,6 @@
 # VoiceCtrl — local voice assistant for Ableton Live
 
-A 100 % local voice → action plugin for [Ableton Live](https://www.ableton.com/).
+A 100% local voice → action plugin for [Ableton Live](https://www.ableton.com/).
 Speak musical instructions; **whisper.cpp** does speech-to-text, a local **Ollama**
 LLM (`qwen2.5:7b-instruct`) translates the request into tool calls, and they are
 executed inside Live through the [AbletonMCP Remote Script](https://github.com/ahujasid/ableton-mcp).
@@ -22,15 +22,11 @@ mic → plugin (capture buffer)
 
 | Path | What |
 |---|---|
-| [`plugin/`](plugin/) | **Real VST3 / AU / Standalone** built with JUCE 8 (recommended) |
-| [`device/`](device/) | A Max-for-Live `.amxd` wrapper for the same pipeline |
-| [`helper/`](helper/) | Pure-Python FastAPI service (used by the M4L device & web UI) |
-| [`VoiceCtrl.js`](VoiceCtrl.js) | Same helper rewritten in Node-for-Max (no Python needed) |
+| [`src/`](src/) | Modular Node.js source (server, pipeline, services) |
+| [`device/`](device/) | Max-for-Live `.amxd` wrapper |
 | [`web/`](web/) | The HTML mic-button UI shown inside the M4L `[jweb]` |
 | [`build_amxd.py`](build_amxd.py) | Generator that packs the patcher into a real `.amxd` |
-
-You can use **either** the JUCE plugin or the M4L device — both drive the same
-AbletonMCP commands, you don't need both.
+| [`models/`](models/) | Whisper ggml model (download separately) |
 
 ## Requirements
 
@@ -48,34 +44,7 @@ brew install ollama whisper-cpp ffmpeg cmake
 ollama pull qwen2.5:7b-instruct
 ```
 
-## Build & install the JUCE plugin
-
-```sh
-git clone https://github.com/<you>/voicectrl-ableton.git
-cd voicectrl-ableton
-
-# Whisper model (~148 MB)
-mkdir -p models
-curl -L -o models/ggml-base.en.bin \
-    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-
-# JUCE checkout (one level up by default — adjust path in plugin/CMakeLists.txt)
-git clone --depth 1 https://github.com/juce-framework/JUCE.git ../JUCE
-
-cmake -S plugin -B plugin/build -DCMAKE_BUILD_TYPE=Release
-cmake --build plugin/build --config Release -j8
-```
-
-Output is auto-copied to:
-
-* `~/Library/Audio/Plug-Ins/Components/VoiceCtrl.component`  (AU)
-* `~/Library/Audio/Plug-Ins/VST3/VoiceCtrl.vst3`             (VST3)
-
-In Ableton: *Preferences → Plug-Ins* → enable AU/VST3 → **Rescan** →
-drop **VoiceCtrl** on an audio track → set *Audio From* to your mic, *Monitor*
-to *In* → click **● Listen** → speak.
-
-## Try the M4L device instead
+## Build & install the Max-for-Live device
 
 ```sh
 python3 build_amxd.py
@@ -84,6 +53,14 @@ python3 build_amxd.py
 Installs `VoiceCtrl.amxd` into `~/Music/Ableton/User Library/Presets/Audio
 Effects/Max Audio Effect/`. The device boots a small Node-for-Max helper on
 `127.0.0.1:8765` and shows a `[jweb]` UI inside the device.
+
+## Start the helper manually
+
+```sh
+./run.sh
+# or
+npm start
+```
 
 ## Voice commands (examples)
 
@@ -95,28 +72,41 @@ Effects/Max Audio Effect/`. The device boots a small Node-for-Max helper on
 * "Create a new MIDI track"
 * "Capture MIDI"
 
-The full tool set lives in
-[`plugin/Source/Pipeline.cpp`](plugin/Source/Pipeline.cpp) (JUCE) and
-[`helper/tools.py`](helper/tools.py) / [`VoiceCtrl.js`](VoiceCtrl.js)
-(M4L variant). Adding a new command is one entry in each.
+The full tool set lives in [`src/pipeline.js`](src/pipeline.js). Adding a new
+command is one entry in `COMMAND_MAP`.
 
 ## Architecture
 
-The plugin runs the audio capture in Live's audio thread, then hands the
-buffer off to a background `Pipeline` thread that:
+The Max-for-Live device boots a Node-for-Max helper (`src/index.js`) on
+`127.0.0.1:8765` that:
 
-1. Writes a 16 kHz mono WAV (`juce::WavAudioFormat`)
-2. Spawns `whisper-cli` (`juce::ChildProcess`) → transcript
-3. POSTs to Ollama `/api/chat` with the tool definitions
-4. Iterates `tool_calls`, translates each call to AbletonMCP JSON, opens a
-   TCP connection to `127.0.0.1:9877` and writes one JSON command per call
+1. Receives audio from the `[jweb]` UI
+2. Converts to 16 kHz mono WAV with `ffmpeg`
+3. Spawns `whisper-cli` → transcript
+4. POSTs to Ollama `/api/chat` with tool definitions
+5. Iterates tool calls, translates each to AbletonMCP JSON, opens a TCP
+   connection to `127.0.0.1:9877` and writes one JSON command per call
 
-That last step is what AbletonMCP's Remote Script accepts — a single JSON
-object per connection.
+## Debugging
+
+```sh
+# Health check
+curl http://127.0.0.1:8765/status
+
+# Full diagnostics
+curl http://127.0.0.1:8765/diagnostics
+
+# Recent logs
+curl "http://127.0.0.1:8765/logs?limit=50"
+
+# Dry-run LLM without audio
+curl -X POST http://127.0.0.1:8765/selftest -H "Content-Type: application/json" -d '{"text":"set the tempo to 120"}'
+```
+
+Logs are written to `~/Library/Logs/VoiceCtrl/` (`events.jsonl` + `helper.log`).
 
 ## Credits
 
-* [JUCE](https://juce.com/) — audio plugin framework
 * [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — STT
 * [Ollama](https://ollama.com/) — local LLM runtime
 * [AbletonMCP](https://github.com/ahujasid/ableton-mcp) by *ahujasid* —

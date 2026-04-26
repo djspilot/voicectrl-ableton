@@ -10,4 +10,4 @@ if ! curl -sSf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
 fi
 
 echo "starting VoiceCtrl helper on http://127.0.0.1:8765"
-exec node VoiceCtrl.js
+exec node src/index.js
