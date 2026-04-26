@@ -1,0 +1,38 @@
+# --- build outputs ----------------------------------------------------
+plugin/build/
+build/
+*.o
+*.a
+*.dylib
+*.so
+*.dll
+JuceLibraryCode/
+
+# --- macOS ------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- IDE / editor -----------------------------------------------------
+.vscode/
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# --- python -----------------------------------------------------------
+__pycache__/
+*.pyc
+.venv/
+.uv/
+
+# --- node -------------------------------------------------------------
+node_modules/
+
+# --- big binary assets (downloaded by user) --------------------------
+models/*.bin
+models/*.gguf
+
+# --- runtime artefacts -----------------------------------------------
+*.log
+/tmp/

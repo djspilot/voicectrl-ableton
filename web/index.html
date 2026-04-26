@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>VoiceCtrl</title>
+<style>
+  :root {
+    --bg:#1c1c1c; --fg:#e8e8e8; --dim:#888; --accent:#ffae00; --err:#ff5560;
+    --ok:#60d394;
+  }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--fg);
+              font-family:-apple-system,Helvetica,Arial,sans-serif;
+              height:100vh; user-select:none; -webkit-user-select:none; }
+  .wrap   { display:flex; flex-direction:column; align-items:center;
+            justify-content:center; height:100%; gap:14px; padding:14px; box-sizing:border-box; }
+  .bars   { display:flex; gap:5px; align-items:center; height:80px; }
+  .bar    { width:8px; height:14px; background:var(--accent); border-radius:4px;
+            transition:height .07s linear; }
+  .bars.idle .bar { background:#555; }
+  button.mic {
+    width:88px; height:88px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--accent); color:#000; font-size:30px; font-weight:700;
+    box-shadow:0 6px 18px rgba(0,0,0,.4); transition:transform .1s;
+  }
+  button.mic:active { transform:scale(.95); }
+  button.mic.rec  { background:var(--err); color:#fff; animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 14px rgba(255,85,96,.15); } }
+  .label   { font-size:13px; color:var(--dim); text-align:center; }
+  .label b { color:var(--fg); }
+  .status  { font-size:11px; color:var(--dim); display:flex; gap:8px; }
+  .dot     { width:8px; height:8px; border-radius:50%; background:#555; display:inline-block; }
+  .dot.on  { background:var(--ok); }
+  .dot.off { background:var(--err); }
+  .log     { font-size:11px; color:var(--dim); max-height:90px; overflow:auto;
+             text-align:left; width:100%; line-height:1.4; font-family:Menlo,monospace; }
+  .log .you { color:var(--fg); }
+  .log .ok  { color:var(--ok); }
+  .log .err { color:var(--err); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bars idle" id="bars">
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  </div>
+  <button id="mic" class="mic" title="Hold to speak (or click to toggle)">●</button>
+  <div class="label" id="label"><b>Click to speak</b><br/>(release / click again to send)</div>
+  <div class="status">
+    <span><span class="dot" id="dotAbleton"></span>Ableton</span>
+    <span><span class="dot" id="dotOllama"></span>Ollama</span>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const HOST = (location.origin && location.origin.startsWith("http"))
+             ? location.origin
+             : "http://127.0.0.1:8765";
+
+const micBtn = document.getElementById("mic");
+const label  = document.getElementById("label");
+const log    = document.getElementById("log");
+const bars   = document.getElementById("bars");
+const barEls = bars.querySelectorAll(".bar");
+const dotA   = document.getElementById("dotAbleton");
+const dotO   = document.getElementById("dotOllama");
+
+let recorder = null, chunks = [], stream = null, audioCtx = null, analyser = null, rafId = null;
+let recording = false;
+
+function logLine(html, cls="") {
+  const div = document.createElement("div");
+  div.className = cls;
+  div.innerHTML = html;
+  log.prepend(div);
+  while (log.children.length > 30) log.lastChild.remove();
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch(HOST + "/status");
+    const j = await r.json();
+    dotA.className = "dot " + (j.ableton ? "on" : "off");
+    dotO.className = "dot on";
+  } catch (e) {
+    dotA.className = "dot off";
+    dotO.className = "dot off";
+  }
+}
+refreshStatus();
+setInterval(refreshStatus, 5000);
+
+function animateBars() {
+  if (!analyser) return;
+  const data = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(data);
+  let sum = 0;
+  for (let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sum += v*v; }
+  const rms = Math.sqrt(sum / data.length);
+  const lvl = Math.min(1, rms * 3);
+  barEls.forEach((b, i) => {
+    const peak = Math.sin((Date.now()/120) + i*0.7)*0.4 + 0.6;
+    b.style.height = (12 + lvl * peak * 60) + "px";
+  });
+  rafId = requestAnimationFrame(animateBars);
+}
+
+async function startRecording() {
+  if (recording) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    logLine("mic blocked: " + e.message, "err");
+    return;
+  }
+  recording = true;
+  chunks = [];
+  recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = onStop;
+  recorder.start();
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(stream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  src.connect(analyser);
+  bars.classList.remove("idle");
+  animateBars();
+
+  micBtn.classList.add("rec");
+  micBtn.textContent = "■";
+  label.innerHTML = "<b>Listening…</b><br/>click to send";
+}
+
+async function stopRecording() {
+  if (!recording) return;
+  recording = false;
+  recorder.stop();
+  micBtn.classList.remove("rec");
+  micBtn.textContent = "●";
+  label.innerHTML = "<b>Thinking…</b>";
+  cancelAnimationFrame(rafId);
+  bars.classList.add("idle");
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (audioCtx) audioCtx.close();
+  analyser = null; audioCtx = null; stream = null;
+}
+
+async function onStop() {
+  const blob = new Blob(chunks, { type: "audio/webm" });
+  const fd   = new FormData();
+  fd.append("audio", blob, "speech.webm");
+  try {
+    const r = await fetch(HOST + "/listen", { method: "POST", body: fd });
+    const j = await r.json();
+    if (j.transcript) logLine("<span class='you'>you:</span> " + j.transcript);
+    if (j.assistant)  logLine(j.assistant);
+    for (const a of (j.actions || [])) {
+      if (a.error) logLine("✗ " + a.tool + ": " + a.error, "err");
+      else         logLine("✓ " + a.tool + " " + JSON.stringify(a.args), "ok");
+    }
+    label.innerHTML = "<b>Click to speak</b>";
+  } catch (e) {
+    logLine("network error: " + e.message, "err");
+    label.innerHTML = "<b>Click to speak</b>";
+  }
+}
+
+micBtn.addEventListener("click", () => recording ? stopRecording() : startRecording());
+// hold-to-talk: press-and-hold also works
+micBtn.addEventListener("mousedown", e => { e.preventDefault(); });
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" && !e.repeat && !recording) { e.preventDefault(); startRecording(); }
+});
+window.addEventListener("keyup", e => {
+  if (e.code === "Space" && recording) { e.preventDefault(); stopRecording(); }
+});
+</script>
+</body>
+</html>

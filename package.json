@@ -1,0 +1,10 @@
+{
+  "name": "voicectrl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local voice assistant for Ableton Live (Node-for-Max helper).",
+  "main": "VoiceCtrl.js",
+  "scripts": {
+    "start": "node VoiceCtrl.js"
+  }
+}
