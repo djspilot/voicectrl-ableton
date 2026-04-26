@@ -54,8 +54,8 @@ def build_patcher() -> dict:
                 "architecture": "x64", "modernui": 1,
             },
             "classnamespace": "box",
-            "rect":               [100.0, 100.0, 720.0, 380.0],
-            "openrect":           [0.0, 0.0, 720.0, 380.0],
+            "rect":               [100.0, 100.0, 420.0, 360.0],
+            "openrect":           [0.0, 0.0, 200.0, 240.0],
             "bglocked":           0,
             "openinpresentation": 1,
             "default_fontsize":   12.0,
@@ -76,7 +76,7 @@ def build_patcher() -> dict:
             "boxanimatetime":     200,
             "enablehscroll":      1,
             "enablevscroll":      1,
-            "devicewidth":        720.0,
+            "devicewidth":        200.0,
             "description":        "VoiceCtrl — local voice assistant for Ableton Live",
             "digest":             "Speak commands; whisper.cpp + Ollama drive Ableton via the AbletonMCP Remote Script.",
             "tags":               "voice,ai,assistant,whisper,ollama,mcp",
@@ -118,26 +118,13 @@ def build_patcher() -> dict:
                     "box": {
                         "id": "obj-web",
                         "maxclass": "jweb",
-                        "patching_rect": [110.0, 20.0, 600.0, 250.0],
+                        "patching_rect": [110.0, 20.0, 280.0, 240.0],
                         "presentation": 1,
-                        "presentation_rect": [0.0, 0.0, 720.0, 320.0],
+                        "presentation_rect": [0.0, 0.0, 200.0, 240.0],
                         "url": URL,
                         "numinlets": 1,
                         "numoutlets": 2,
                         "outlettype": ["", ""],
-                    }
-                },
-                # --- title strip in presentation ------------------------------
-                {
-                    "box": {
-                        "id": "obj-title",
-                        "maxclass": "comment",
-                        "text": "VoiceCtrl — local voice → Ableton",
-                        "patching_rect": [110.0, 5.0, 400.0, 18.0],
-                        "presentation": 1,
-                        "presentation_rect": [10.0, 322.0, 700.0, 18.0],
-                        "fontface": 1,
-                        "textcolor": [0.85, 0.85, 0.85, 1.0],
                     }
                 },
             ],
