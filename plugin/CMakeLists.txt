@@ -46,6 +46,7 @@ target_compile_definitions(VoiceCtrl PRIVATE
 target_link_libraries(VoiceCtrl PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
+    juce::juce_audio_devices
     juce::juce_audio_formats
     juce::juce_dsp
     juce::juce_gui_extra
