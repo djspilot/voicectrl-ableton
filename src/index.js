@@ -5,7 +5,9 @@ const logger    = require("./logger");
 const { server } = require("./server");
 
 server.listen(config.PORT, "127.0.0.1", () => {
-  logger.info(`VoiceCtrl listening on 127.0.0.1:${config.PORT}`, null);
+  const msg = `VoiceCtrl STARTED pid=${process.pid} port=${config.PORT} model=${config.MODEL}`;
+  logger.info(msg, null);
+  Max.post(`[VoiceCtrl] ${msg}`);
 });
 
 // ── Ollama watchdog — check every 30s ───────────────────────────────────

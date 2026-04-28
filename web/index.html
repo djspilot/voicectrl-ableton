@@ -7,43 +7,57 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <style>
   :root {
-    --bg:#222; --panel:#2b2a27; --fg:#f2eee5; --dim:#8b867b; --accent:#f0a93b; --hot:#ff7a2f; --err:#ff5560;
+    --bg:#222; --panel:#2b2a27; --fg:#f2eee5; --dim:#8b867b; --accent:#f0a93b; --hot:#ff7a2f; --err:#ff5560; --ok:#60d394;
   }
   html,body {
     margin:0; padding:0; background:var(--bg); color:var(--fg);
     font-family:-apple-system,Helvetica,Arial,sans-serif;
     height:100%; width:100%; overflow:hidden;
-    user-select:none; -webkit-user-select:none; cursor:pointer;
+    user-select:none; -webkit-user-select:none;
   }
   .stage {
     position:fixed; inset:0;
     display:grid;
-    grid-template-rows: 58px 34px 18px 16px;
+    grid-template-rows: 52px 32px 16px 14px 1fr;
     align-items:center;
     justify-items:center;
     gap:3px;
     padding:6px;
     box-sizing:border-box;
   }
+  .header {
+    position:absolute; top:6px; left:6px; right:6px;
+    display:flex; justify-content:space-between; align-items:center;
+    height:22px;
+  }
+  .left-info { display:flex; flex-direction:column; gap:2px; }
+  .rid {
+    font-size:9px; font-weight:800; color:#6b9fd4;
+    font-family:ui-monospace,monospace;
+    max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .pid { font-size:8px; color:#555; font-family:ui-monospace,monospace; }
+  .dots { display:flex; gap:8px; align-items:center; }
+  .dot { width:8px; height:8px; border-radius:50%; background:#444; }
+  .dot.on  { background:var(--ok); box-shadow:0 0 6px var(--ok); }
+  .dot.off { background:var(--err); box-shadow:0 0 6px var(--err); }
+  .btn {
+    background:#2d2d2d; color:var(--fg); border:1px solid #444;
+    border-radius:6px; padding:4px 10px; font-size:11px; font-weight:800;
+    cursor:pointer; text-decoration:none; display:inline-block;
+  }
+  .btn:hover { border-color:#666; background:#3a3a3a; }
   .mark {
-    width:48px; height:48px;
+    width:52px; height:52px;
     border-radius:13px;
     box-shadow:0 8px 18px rgba(0,0,0,.32);
     background:linear-gradient(135deg,#ffc15a,#f07f2f 58%,#191919);
-    display:grid;
-    place-items:center;
-    align-self:end;
-    margin-bottom:-4px;
+    display:grid; place-items:center; cursor:pointer;
   }
-  .mark img { width:34px; height:34px; display:block; }
-  .bars {
-    display:flex; gap:5px; align-items:center;
-    align-self:center;
-    min-height:28px;
-    height:34px;
-  }
+  .mark img { width:36px; height:36px; display:block; }
+  .bars { display:flex; gap:5px; align-items:center; min-height:26px; height:32px; }
   .bar {
-    width:10px; min-height:16px; max-height:100%;
+    width:10px; min-height:14px; max-height:100%;
     background:var(--accent); border-radius:6px;
     transition:height .07s linear, background .25s, opacity .25s;
   }
@@ -51,73 +65,48 @@
   .stage.thinking  .bar { background:var(--accent); opacity:.9; }
   .stage.error     .bar { background:var(--err); }
   .label {
-    font-size:clamp(12px, 4.5vw, 15px); font-weight:800; color:var(--fg);
+    font-size:clamp(13px, 5vw, 16px); font-weight:800; color:var(--fg);
     text-align:center; line-height:1.15;
-    max-width:96%;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
+    max-width:96%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .stage.idle .label { color:var(--dim); }
   .sub {
-    font-size:clamp(10px, 3.3vw, 12px); color:var(--dim); text-align:center;
-    min-height:12px;
-    max-width:96%;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-  }
-  .dots {
-    position:absolute;
-    top:8px;
-    right:8px;
-    display:flex; gap:6px;
-    margin-top:0;
-  }
-  .dot { width:6px; height:6px; border-radius:50%; background:#444; }
-  .dot.on  { background:#60d394; }
-  .dot.off { background:var(--err); }
-  .rid {
-    position:absolute; left:8px; top:7px;
-    color:#6b9fd4; font-size:9px; font-weight:800;
-    max-width:80px;
+    font-size:clamp(10px, 3vw, 12px); color:var(--dim); text-align:center;
+    min-height:12px; max-width:96%;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .debugLink {
-    position:absolute; left:8px; top:7px;
-    color:#9ac7ff; font-size:10px; font-weight:800;
-    text-decoration:none;
+  .actions { display:flex; gap:8px; }
+  .footer {
+    position:absolute; bottom:6px; left:6px; right:6px;
+    display:flex; justify-content:space-between; align-items:center;
   }
-  .stage.embed .sub { max-width:88%; }
-  .stage.embed .mark { width:44px; height:44px; border-radius:12px; }
-  .stage.embed .mark img { width:31px; height:31px; }
-  .debug {
-    position:absolute; left:6px; right:6px; bottom:6px;
-    max-height:44%;
-    background:rgba(0,0,0,.58);
-    border:1px solid #3b3b3b;
-    border-radius:6px;
-    font-size:10px;
-    color:#cfcfcf;
+  .status-line {
+    font-size:9px; color:#555; font-family:ui-monospace,monospace;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%;
   }
-  .debug > summary {
-    padding:4px 6px;
-    cursor:pointer;
-    color:#9ac7ff;
-    font-weight:700;
-  }
-  .debug pre {
-    margin:0; padding:6px;
-    overflow:auto;
-    max-height:160px;
-    white-space:pre-wrap;
-    line-height:1.3;
-  }
+  .status-line.err { color:var(--err); }
+  .status-line.ok  { color:var(--ok); }
 </style>
 </head>
 <body>
 <div class="stage idle" id="stage">
-  <div class="mark" title="VoiceCtrl"><img src="icon.svg" alt="" /></div>
+  <!-- header bar -->
+  <div class="header">
+    <div class="left-info">
+      <span class="rid" id="ridDisplay" title="Request ID (click to copy)"></span>
+      <span class="pid" id="pidDisplay"></span>
+    </div>
+    <div class="dots">
+      <span id="dotAbleton" class="dot" title="AbletonMCP"></span>
+      <span id="dotOllama"  class="dot" title="Ollama"></span>
+      <span id="dotServer"  class="dot" title="VoiceCtrl server"></span>
+    </div>
+  </div>
+
+  <!-- main button area -->
+  <div class="mark" id="micBtn" title="Click or spacebar to speak">
+    <img src="icon.svg" alt="" />
+  </div>
   <div class="bars" id="bars">
     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
@@ -125,59 +114,100 @@
   </div>
   <div class="label" id="label">Click to speak</div>
   <div class="sub"   id="sub"></div>
-  <div class="dots">
-    <span class="dot" id="dotAbleton" title="Ableton"></span>
-    <span class="dot" id="dotOllama"  title="Ollama"></span>
+  <div class="actions">
+    <button class="btn" id="btnTest" title="Dry-run test command">Test</button>
+    <button class="btn" id="btnDebug" title="Open full debug dashboard">Debug</button>
   </div>
-  <span class="rid" id="ridDisplay" title="Request ID"></span>
-  <a class="debugLink" id="debugLink" target="_blank">debug</a>
-  <details class="debug" id="debugBox">
-    <summary>Debug</summary>
-    <pre id="debugText">waiting...</pre>
-  </details>
+  <div class="footer">
+    <span class="status-line" id="statusLine"></span>
+    <span class="rid" id="lastRid" title="Last request ID"></span>
+  </div>
 </div>
 
 <script>
 const params = new URLSearchParams(location.search);
-const HOST = params.get("api") ? decodeURIComponent(params.get("api")) : "http://127.0.0.1:8765";
-const stage = document.getElementById("stage");
+const HOST   = params.get("api") ? decodeURIComponent(params.get("api")) : "http://127.0.0.1:8765";
+const stage  = document.getElementById("stage");
 const label = document.getElementById("label");
 const sub   = document.getElementById("sub");
 const bars  = document.getElementById("bars").querySelectorAll(".bar");
 const dotA  = document.getElementById("dotAbleton");
 const dotO  = document.getElementById("dotOllama");
-const debugText = document.getElementById("debugText");
-const ridEl = document.getElementById("debugLink");
-const ridDisplay = document.getElementById("ridDisplay");
-ridEl.href = HOST + "/debug.html";
-if (params.get("embed") === "1") stage.classList.add("embed");
+const dotS  = document.getElementById("dotServer");
+const ridDisplay   = document.getElementById("ridDisplay");
+const pidDisplay  = document.getElementById("pidDisplay");
+const statusLine  = document.getElementById("statusLine");
+const lastRidEl   = document.getElementById("lastRid");
 
 let recorder = null, chunks = [], stream = null, audioCtx = null, analyser = null, raf = null;
 let state = "idle";
 let recording = false;
 let lastRid = "";
-let history = [];
+let serverUp = false;
 
+// ── buttons ────────────────────────────────────────────────────────────────
+document.getElementById("btnTest").onclick = async () => {
+  const t = prompt("Test command:", "set the tempo to 120");
+  if (!t) return;
+  setStatus("testing...", "");
+  try {
+    const r = await fetch(HOST + "/command", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ text: t }),
+    });
+    const j = await r.json();
+    lastRid = j.request_id || "";
+    ridDisplay.textContent = lastRid ? "RID:" + lastRid.slice(0,8) : "";
+    lastRidEl.textContent = lastRid ? lastRid.slice(0,8) : "";
+    const errors = (j.actions||[]).filter(a=>a.error);
+    setStatus(errors.length ? `FAIL ${errors.length} error(s)` : "ok", errors.length ? "err" : "ok");
+    label.textContent = j.transcript || t;
+    sub.textContent  = j.assistant || (j.actions||[]).map(a=>a.tool).join(", ") || "(no response)";
+  } catch(e) {
+    setStatus("TEST FAIL: " + e.message, "err");
+  }
+};
+
+document.getElementById("btnDebug").onclick = () => {
+  window.open(HOST + "/debug.html", "_blank", "width=900,height=700,resizable=yes");
+};
+
+document.getElementById("ridDisplay").onclick = () => {
+  if (lastRid) { navigator.clipboard?.writeText(lastRid); setStatus("RID copied", "ok"); }
+};
+
+// ── ping ──────────────────────────────────────────────────────────────────
+async function ping() {
+  try {
+    const r = await fetch(HOST + "/ping");
+    if (r.ok) { serverUp = true; dotS.className = "dot on"; pidDisplay.textContent = `pid:${(await r.json()).pid}`; return; }
+  } catch {}
+  serverUp = false; dotS.className = "dot off";
+}
+
+// ── status ────────────────────────────────────────────────────────────────
+function setStatus(msg, type="") {
+  statusLine.textContent = msg;
+  statusLine.className = "status-line " + (type ? type : "");
+}
+
+// ── user errors ────────────────────────────────────────────────────────────
 function userError(message, rid) {
   if (!message) return { label:"Failed", sub:"open Debug for details" };
   const s = rid ? `[${rid.slice(0,8)}] ` : "";
-  if (message.includes("ECONNREFUSED") || message.includes("connection failed") || message.includes("connection refused")) {
+  if (!serverUp) return { label:"Server offline", sub:"Reinsert device in Live" };
+  if (message.includes("ECONNREFUSED") || message.includes("connection failed") || message.includes("connection refused"))
     return { label:"Ableton offline", sub:s + "Enable AbletonMCP in Live Preferences" };
-  }
-  if (message.includes("timeout") && (message.includes("ableton") || message.includes("Ableton"))) {
+  if (message.includes("timeout") && (message.includes("ableton") || message.includes("Ableton")))
     return { label:"Ableton timeout", sub:s + "Command timed out — Live busy?" };
-  }
-  if (message.includes("protocol") || message.includes("Bad response")) {
+  if (message.includes("protocol") || message.includes("Bad response"))
     return { label:"Ableton error", sub:s + "Bad response from AbletonMCP" };
-  }
-  if (message.includes("circuit open")) {
+  if (message.includes("circuit open"))
     return { label:"Ollama cooling down", sub:s + "Too many failures — wait 60s" };
-  }
   if (message.includes("ollama") || message.includes("Ollama")) return { label:"Ollama error", sub:s + message };
   if (message.includes("whisper") || message.includes("Whisper")) return { label:"Whisper error", sub:s + message };
-  if (message.includes("Failed to fetch") || message.includes("fetch failed") || message.includes("NetworkError")) {
-    return { label:"Server unreachable", sub:s + "VoiceCtrl may have crashed — reinsert device" };
-  }
+  if (message.includes("Failed to fetch") || message.includes("fetch failed") || message.includes("NetworkError"))
+    return { label:"Server unreachable", sub:s + "VoiceCtrl crashed — reinsert device" };
   return { label:"Failed", sub:s + message };
 }
 
@@ -189,46 +219,38 @@ function setState(next, l, s) {
   if (s !== undefined) sub.textContent   = s;
 }
 
+// ── status poll ─────────────────────────────────────────────────────────
 async function refreshStatus() {
+  await ping();
   try {
-    const r = await fetch(HOST + "/status"); const j = await r.json();
+    const r = await fetch(HOST + "/status");
+    const j = await r.json();
     dotA.className = "dot " + (j.ableton ? "on" : "off");
     dotO.className = "dot " + (j.ollama_ok ? "on" : "off");
+    if (!serverUp) { dotS.className = "dot off"; }
     if (j.service !== "voicectrl-node") {
       setState("error", "Wrong backend", "port 8765 used by another service");
-    } else if (state === "idle") {
-      if (!j.ableton) {
-        const info = userError(j.ableton_error || "AbletonMCP offline");
-        sub.textContent = info.sub; sub.title = j.ableton_error || "";
-      } else if (!j.ollama_ok) {
-        const info = userError(j.ollama_error || "Ollama unavailable");
-        sub.textContent = info.sub; sub.title = j.ollama_error || "";
-      }
+      setStatus("WRONG BACKEND on " + HOST, "err");
+    } else if (state === "idle" && !serverUp) {
+      setStatus("server offline — reinsert device", "err");
+    } else if (state === "idle" && !j.ableton) {
+      const e = userError(j.ableton_error || "AbletonMCP offline", "");
+      sub.textContent = e.sub; dotA.className = "dot off";
+    } else if (state === "idle" && !j.ollama_ok) {
+      const e = userError(j.ollama_error || "Ollama unavailable", "");
+      sub.textContent = e.sub; dotO.className = "dot off";
+    } else if (state === "idle" && serverUp) {
+      setStatus("ready", "ok");
     }
-  } catch { dotA.className = "dot off"; dotO.className = "dot off"; }
-}
-
-async function refreshDebug() {
-  try {
-    const r = await fetch(HOST + "/debug"); const j = await r.json();
-    const lines = (j.recent_logs || []).slice(-50).map(x => `[${x.level[0].toUpperCase()}] ${x.msg}`);
-    debugText.textContent =
-      `service=${j.service} pid=${j.pid} uptime=${j.uptime_s}s ` +
-      `log=${j.log_healthy ? "ok" : "ERR: " + (j.log_file_error || "unknown")}\n` +
-      `root=${j.root}\n` +
-      `model=${j.paths?.whisper_model ? "ok" : "?"} ` +
-      `whisper=${j.exists?.whisper_cli ? "ok" : "MISSING"} ` +
-      `ffmpeg=${j.exists?.ffmpeg ? "ok" : "MISSING"}\n` +
-      lines.join("\n");
-  } catch (e) {
-    debugText.textContent = "debug unavailable: " + e.message;
+  } catch {
+    dotA.className = "dot off"; dotO.className = "dot off"; dotS.className = "dot off";
+    setStatus("cannot reach VoiceCtrl on " + HOST, "err");
   }
 }
 refreshStatus();
-refreshDebug();
 setInterval(refreshStatus, 3000);
-setInterval(refreshDebug, 1000);
 
+// ── animation ─────────────────────────────────────────────────────────────
 function animate() {
   if (state === "listening" && analyser) {
     const data = new Uint8Array(analyser.fftSize);
@@ -239,13 +261,13 @@ function animate() {
     const max = bars[0].parentElement.clientHeight;
     bars.forEach((b,i)=>{
       const peak = Math.sin((Date.now()/110)+i*0.55)*0.45+0.55;
-      b.style.height = Math.max(18, lvl*peak*max + 18) + "px";
+      b.style.height = Math.max(14, lvl*peak*max + 14) + "px";
     });
   } else if (state === "thinking") {
     const max = bars[0].parentElement.clientHeight;
     bars.forEach((b,i)=>{
       const v = Math.abs(Math.sin((Date.now()/250)+i*0.7));
-      b.style.height = (18 + v*max*0.6) + "px";
+      b.style.height = (14 + v*max*0.6) + "px";
     });
   } else {
     bars.forEach(b => b.style.height = "");
@@ -253,6 +275,15 @@ function animate() {
   raf = requestAnimationFrame(animate);
 }
 animate();
+
+// ── recording ─────────────────────────────────────────────────────────────
+document.getElementById("micBtn").onclick = () => recording ? stopRecording() : startRecording();
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" && !e.repeat && !recording) { e.preventDefault(); startRecording(); }
+});
+window.addEventListener("keyup", e => {
+  if (e.code === "Space" && recording) { e.preventDefault(); stopRecording(); }
+});
 
 async function startRecording() {
   if (recording) return;
@@ -273,7 +304,7 @@ async function startRecording() {
 async function stopRecording() {
   if (!recording) return;
   recording = false;
-  setState("thinking", "Connecting...", "Connecting to AI");
+  setState("thinking", "Thinking...", "gemma4 processing");
   recorder.stop();
   if (stream)   stream.getTracks().forEach(t=>t.stop());
   if (audioCtx) audioCtx.close();
@@ -287,37 +318,28 @@ async function onStop() {
     const r = await fetch(HOST + "/listen", { method:"POST", body: fd });
     const j = await r.json();
     lastRid = j.request_id || "";
-    // persist history
-    history.push({ ts: new Date().toISOString(), rid: lastRid, transcript: j.transcript });
-    if (history.length > 20) history.shift();
-    ridDisplay.textContent = lastRid ? lastRid.slice(0,8) : "";
-
+    ridDisplay.textContent = lastRid ? "RID:" + lastRid.slice(0,8) : "";
+    lastRidEl.textContent = lastRid ? lastRid.slice(0,8) : "";
     if (j.transcript) {
       const errors = (j.actions||[]).filter(a=>a.error);
       const ok = errors.length === 0;
       const firstError = errors[0]?.error || "";
       const friendly = userError(firstError, lastRid);
-      const toolNames = (j.actions||[]).map(a=>a.tool).join(", ");
       setState(ok ? "idle" : "error",
                ok ? (j.transcript.length<32 ? j.transcript : "Done") : friendly.label,
-               ok ? (j.assistant || toolNames) : friendly.sub);
+               ok ? (j.assistant || (j.actions||[]).map(a=>a.tool).join(", ")) : friendly.sub);
+      setStatus(ok ? "ok" : "FAIL " + errors.length + " error(s)", ok ? "ok" : "err");
     } else {
       setState("idle", "Click to speak", "(no speech)");
+      setStatus("no speech detected", "");
     }
   } catch (e) {
-    setState("error", "Network error", e.message);
-    ridDisplay.textContent = lastRid ? lastRid.slice(0,8) : "";
+    const friendly = userError(e.message, lastRid);
+    setState("error", friendly.label, friendly.sub);
+    setStatus("ERROR: " + e.message, "err");
   }
-  setTimeout(()=>{ if (state!=="listening") setState("idle","Click to speak",""); }, 2500);
+  setTimeout(()=>{ if (state!=="listening") { setState("idle","Click to speak",""); } }, 3000);
 }
-
-document.body.addEventListener("click", () => recording ? stopRecording() : startRecording());
-window.addEventListener("keydown", e => {
-  if (e.code === "Space" && !e.repeat && !recording) { e.preventDefault(); startRecording(); }
-});
-window.addEventListener("keyup", e => {
-  if (e.code === "Space" && recording) { e.preventDefault(); stopRecording(); }
-});
 </script>
 </body>
 </html>

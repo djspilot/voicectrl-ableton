@@ -195,6 +195,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ping — basic liveness check
+    if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/ping") {
+      sendJSON(res, 200, { ok: true, pid: process.pid, ts: new Date().toISOString() });
+      return;
+    }
+
     // debug state
     if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/debug") {
       sendJSON(res, 200, { ...publicState(), rid, recent_logs: logger.recent(50) });
