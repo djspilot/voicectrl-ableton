@@ -21,7 +21,7 @@ const MODEL_PATH = process.env.VOICECTRL_WHISPER_MODEL
 
 // ── external services ───────────────────────────────────────────────────────
 const OLLAMA_URL   = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
-const MODEL        = process.env.VOICECTRL_MODEL || "qwen2.5:7b-instruct";
+const MODEL        = process.env.VOICECTRL_MODEL || "gemma4:latest";
 const ABLETON_HOST = "127.0.0.1";
 const ABLETON_PORT = 9877;
 
