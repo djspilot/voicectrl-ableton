@@ -169,7 +169,8 @@ document.getElementById("btnTest").onclick = async () => {
 };
 
 document.getElementById("btnDebug").onclick = () => {
-  window.open(HOST + "/debug.html", "_blank", "width=900,height=700,resizable=yes");
+  const url = HOST + "/debug.html";
+  window.open(url, "VoiceCtrlDebug", "width=900,height=700,resizable=yes,scrollbars=yes");
 };
 
 document.getElementById("ridDisplay").onclick = () => {
