@@ -17,7 +17,7 @@ const WEB_DIR    = path.join(ROOT, "web");
 const LOG_DIR    = process.env.VOICECTRL_LOG_DIR
                      || path.join(os.homedir(), "Library", "Logs", "VoiceCtrl");
 const MODEL_PATH = process.env.VOICECTRL_WHISPER_MODEL
-                     || path.join(ROOT, "models", "ggml-base.en.bin");
+                     || path.join(ROOT, "models", "ggml-small.en.bin");
 
 // ── external services ───────────────────────────────────────────────────────
 const OLLAMA_URL   = process.env.OLLAMA_URL || "http://127.0.0.1:11434";

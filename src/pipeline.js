@@ -104,10 +104,10 @@ async function processAudio(audioBytes, rid) {
     return { request_id: rid, transcript, actions: [], assistant: text, duration_ms: Date.now() - started };
   }
 
-  const actions = [];
-  for (const c of calls) {
+  let actions = [];
+  const results = await Promise.all(calls.map(async (c) => {
     const t = COMMAND_MAP[c.name];
-    if (!t) { actions.push({ tool: c.name, args: c.arguments, error: "unknown tool" }); continue; }
+    if (!t) return { tool: c.name, args: c.arguments, error: "unknown tool" };
     try {
       const [type, params] = t(c.arguments);
       if (!UPSTREAM_ABLETON_COMMANDS.has(type)) {
@@ -116,12 +116,13 @@ async function processAudio(audioBytes, rid) {
       logger.info(`[${rid}] → ableton: ${type} ${JSON.stringify(params)}`, rid);
       const r = await abletonSend(type, params);
       logger.info(`[${rid}] ← ableton: ${type} ok`, rid);
-      actions.push({ tool: c.name, args: c.arguments, ableton: r });
+      return { tool: c.name, args: c.arguments, ableton: r };
     } catch (e) {
       logger.error(`[${rid}] tool ${c.name} failed: ${e.message}`, rid);
-      actions.push({ tool: c.name, args: c.arguments, error: e.message });
+      return { tool: c.name, args: c.arguments, error: e.message };
     }
-  }
+  }));
+  actions.push(...results);
 
   return { request_id: rid, transcript, actions, duration_ms: Date.now() - started };
 }
@@ -139,10 +140,10 @@ async function processCommand(text, rid) {
     return { request_id: rid, transcript: text, actions: [], assistant: text2, duration_ms: Date.now() - started };
   }
 
-  const actions = [];
-  for (const c of calls) {
+  let actions = [];
+  const results = await Promise.all(calls.map(async (c) => {
     const t = COMMAND_MAP[c.name];
-    if (!t) { actions.push({ tool: c.name, args: c.arguments, error: "unknown tool" }); continue; }
+    if (!t) return { tool: c.name, args: c.arguments, error: "unknown tool" };
     try {
       const [type, params] = t(c.arguments);
       if (!UPSTREAM_ABLETON_COMMANDS.has(type)) {
@@ -151,12 +152,13 @@ async function processCommand(text, rid) {
       logger.info(`[${rid}] → ableton: ${type} ${JSON.stringify(params)}`, rid);
       const r = await abletonSend(type, params);
       logger.info(`[${rid}] ← ableton: ${type} ok`, rid);
-      actions.push({ tool: c.name, args: c.arguments, ableton: r });
+      return { tool: c.name, args: c.arguments, ableton: r };
     } catch (e) {
       logger.error(`[${rid}] tool ${c.name} failed: ${e.message}`, rid);
-      actions.push({ tool: c.name, args: c.arguments, error: e.message });
+      return { tool: c.name, args: c.arguments, error: e.message };
     }
-  }
+  }));
+  actions.push(...results);
 
   return { request_id: rid, transcript: text, actions, duration_ms: Date.now() - started };
 }

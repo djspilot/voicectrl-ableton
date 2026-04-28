@@ -129,6 +129,7 @@
     <span class="dot" id="dotAbleton" title="Ableton"></span>
     <span class="dot" id="dotOllama"  title="Ollama"></span>
   </div>
+  <span class="rid" id="ridDisplay" title="Request ID"></span>
   <a class="debugLink" id="debugLink" target="_blank">debug</a>
   <details class="debug" id="debugBox">
     <summary>Debug</summary>
@@ -147,6 +148,7 @@ const dotA  = document.getElementById("dotAbleton");
 const dotO  = document.getElementById("dotOllama");
 const debugText = document.getElementById("debugText");
 const ridEl = document.getElementById("debugLink");
+const ridDisplay = document.getElementById("ridDisplay");
 ridEl.href = HOST + "/debug.html";
 if (params.get("embed") === "1") stage.classList.add("embed");
 
@@ -159,17 +161,23 @@ let history = [];
 function userError(message, rid) {
   if (!message) return { label:"Failed", sub:"open Debug for details" };
   const s = rid ? `[${rid.slice(0,8)}] ` : "";
-  if (message.includes("ECONNREFUSED") || message.includes("connection failed")) {
+  if (message.includes("ECONNREFUSED") || message.includes("connection failed") || message.includes("connection refused")) {
     return { label:"Ableton offline", sub:s + "Enable AbletonMCP in Live Preferences" };
   }
-  if (message.includes("timeout")) {
+  if (message.includes("timeout") && (message.includes("ableton") || message.includes("Ableton"))) {
     return { label:"Ableton timeout", sub:s + "Command timed out — Live busy?" };
   }
-  if (message.includes("protocol")) {
+  if (message.includes("protocol") || message.includes("Bad response")) {
     return { label:"Ableton error", sub:s + "Bad response from AbletonMCP" };
   }
-  if (message.includes("Ollama") || message.includes("ollama")) return { label:"Ollama error", sub:s + message };
-  if (message.includes("whisper")) return { label:"Whisper error", sub:s + message };
+  if (message.includes("circuit open")) {
+    return { label:"Ollama cooling down", sub:s + "Too many failures — wait 60s" };
+  }
+  if (message.includes("ollama") || message.includes("Ollama")) return { label:"Ollama error", sub:s + message };
+  if (message.includes("whisper") || message.includes("Whisper")) return { label:"Whisper error", sub:s + message };
+  if (message.includes("Failed to fetch") || message.includes("fetch failed") || message.includes("NetworkError")) {
+    return { label:"Server unreachable", sub:s + "VoiceCtrl may have crashed — reinsert device" };
+  }
   return { label:"Failed", sub:s + message };
 }
 
@@ -282,6 +290,7 @@ async function onStop() {
     // persist history
     history.push({ ts: new Date().toISOString(), rid: lastRid, transcript: j.transcript });
     if (history.length > 20) history.shift();
+    ridDisplay.textContent = lastRid ? lastRid.slice(0,8) : "";
 
     if (j.transcript) {
       const errors = (j.actions||[]).filter(a=>a.error);
@@ -297,6 +306,7 @@ async function onStop() {
     }
   } catch (e) {
     setState("error", "Network error", e.message);
+    ridDisplay.textContent = lastRid ? lastRid.slice(0,8) : "";
   }
   setTimeout(()=>{ if (state!=="listening") setState("idle","Click to speak",""); }, 2500);
 }

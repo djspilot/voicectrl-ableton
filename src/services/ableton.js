@@ -5,8 +5,9 @@ const config = require("../config");
 const logger = require("../logger");
 
 // ── session socket (keepalive within one VoiceCtrl session) ───────────────
-let sock     = null;
-let sockBusy = false;
+let sock = null;
+// queue for concurrent requests — only one in-flight at a time
+let pending = null;
 
 function isConnected() {
   return sock && !sock.destroyed && sock.readyState === "open";
@@ -26,7 +27,11 @@ function connect() {
 
 // ── send once (opens fresh connection, keeps it open for next call) ────────
 function abletonSend(type, params = {}) {
-  return new Promise(async (resolve, reject) => {
+  // Queue concurrent requests — only one in-flight at a time
+  if (pending) {
+    return pending.then(() => abletonSend(type, params));
+  }
+  pending = new Promise(async (resolve, reject) => {
     let buf = "";
 
     async function trySend() {
@@ -70,15 +75,19 @@ function abletonSend(type, params = {}) {
       if (!isConnected() && (e.message.includes("connection") || e.message.includes("timeout"))) {
         logger.warn("AbletonMCP reconnecting after: " + e.message);
         sock = null;
-        try { await trySend(); return; }
+        try { await trySend(); }
         catch (e2) {
           reject(new Error(`${e.message} → reconnect failed: ${e2.message}`));
           return;
         }
+      } else {
+        reject(e);
+        return;
       }
-      reject(e);
     }
+    pending = null;
   });
+  return pending;
 }
 
 async function abletonHealth() {

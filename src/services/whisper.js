@@ -23,7 +23,7 @@ async function transcribe(audioBytes, rid) {
     throw new Error(`whisper-cli not found at ${config.WHISPER_CLI} — install with: brew install whisper-cpp`);
   }
   if (!fs.existsSync(config.MODEL_PATH)) {
-    throw new Error(`whisper model missing at ${config.MODEL_PATH} — download ggml-base.en.bin`);
+    throw new Error(`whisper model missing: ${config.MODEL_PATH} — download ggml-small.en.bin (488MB): curl -L -o "${config.MODEL_PATH}" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin`);
   }
 
   const tmp     = fs.mkdtempSync(path.join(os.tmpdir(), "voicectrl-"));
@@ -32,12 +32,13 @@ async function transcribe(audioBytes, rid) {
   fs.writeFileSync(inPath, audioBytes);
 
   try {
+    const FFMPEG_TIMEOUT = Math.min(config.WHISPER_TIMEOUT, 30_000);
     const ffmpegDone = spawnP(config.FFMPEG, [
       "-y", "-loglevel", "error", "-i", inPath,
       "-ac", "1", "-ar", "16000", wavPath,
     ]);
     const ffmpegTimeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("ffmpeg timeout (30s)")), 30_000)
+      setTimeout(() => reject(new Error(`ffmpeg timeout (${FFMPEG_TIMEOUT}ms)`)), FFMPEG_TIMEOUT)
     );
     await Promise.race([ffmpegDone, ffmpegTimeout]);
 

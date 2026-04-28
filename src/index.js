@@ -8,6 +8,13 @@ server.listen(config.PORT, "127.0.0.1", () => {
   logger.info(`VoiceCtrl listening on 127.0.0.1:${config.PORT}`, null);
 });
 
+// ── Ollama watchdog — check every 30s ───────────────────────────────────
+setInterval(async () => {
+  const { ollamaHealth } = require("./services/ollama");
+  const h = await ollamaHealth().catch(e => ({ ok: false, error: e.message }));
+  if (!h.ok) logger.warn(`Ollama watchdog: ${h.error || "unreachable"}`);
+}, 30_000);
+
 server.on("error", e => {
   logger.error(`HTTP listen failed: ${e.message} (port ${config.PORT})`, null);
 });

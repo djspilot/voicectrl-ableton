@@ -79,7 +79,7 @@ async function diagnostics(rid) {
   const fixes = [];
   if (!fs.existsSync(config.FFMPEG))      fixes.push("Install ffmpeg:        brew install ffmpeg");
   if (!fs.existsSync(config.WHISPER_CLI)) fixes.push("Install whisper.cpp:   brew install whisper-cpp");
-  if (!fs.existsSync(config.MODEL_PATH))  fixes.push(`Download ggml-base.en.bin to ${config.MODEL_PATH}`);
+  if (!fs.existsSync(config.MODEL_PATH))  fixes.push(`Download ggml-small.en.bin (488MB) to ${config.MODEL_PATH} — see README for instructions`);
   if (!ollama.ok)                         fixes.push(`Start Ollama: ollama serve && ollama pull ${config.MODEL}`);
   if (!ableton.ok)                        fixes.push("In Ableton: Preferences > Link/Tempo/MIDI > Control Surface = AbletonMCP, restart Live");
 
@@ -110,13 +110,17 @@ async function selfTest(text = "set the tempo to 120", rid) {
   return result;
 }
 
-async function readBody(req, max = 50 * 1024 * 1024) {
-  const chunks = []; let total = 0;
-  for await (const c of req) {
-    chunks.push(c); total += c.length;
-    if (total > max) throw new Error("body too large");
-  }
-  return Buffer.concat(chunks);
+async function readBody(req, max = 50 * 1024 * 1024, timeoutMs = 30_000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("body read timeout")), timeoutMs);
+    const chunks = []; let total = 0;
+    req.on("data", c => {
+      chunks.push(c); total += c.length;
+      if (total > max) { clearTimeout(timer); reject(new Error("body too large")); }
+    });
+    req.on("end", () => { clearTimeout(timer); resolve(Buffer.concat(chunks)); });
+    req.on("error", e => { clearTimeout(timer); reject(e); });
+  });
 }
 
 function stripMultipart(buf, ctype = "") {

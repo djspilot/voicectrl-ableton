@@ -46,11 +46,29 @@ const SYSTEM_PROMPT =
   "- Prefer one tool call for simple commands. Never ask follow-up questions.\n" +
   "- If no tool fits or the transcript is ambiguous, say 'No clear Ableton command detected.' without calling tools.";
 
+// ── circuit breaker ─────────────────────────────────────────────────────────
+let failures = 0;
+const CIRCUIT_THRESHOLD = 5;
+const CIRCUIT_COOLDOWN  = 60_000; // ms
+let circuitUntil = 0;
+
+function isCircuitOpen() {
+  return failures >= CIRCUIT_THRESHOLD && Date.now() < circuitUntil;
+}
+
 // ── retries with backoff ────────────────────────────────────────────────────
 async function withRetry(fn, retries = 3, baseMs = 2000) {
+  if (isCircuitOpen()) {
+    throw new Error(`ollama circuit open — ${CIRCUIT_THRESHOLD} consecutive failures, cooling down for ${CIRCUIT_COOLDOWN}ms`);
+  }
   for (let i = 0; i <= retries; i++) {
     try { return await fn(); }
     catch (e) {
+      failures++;
+      if (failures >= CIRCUIT_THRESHOLD) {
+        circuitUntil = Date.now() + CIRCUIT_COOLDOWN;
+        logger.error(`ollama circuit breaker opened after ${failures} failures — cooling down ${CIRCUIT_COOLDOWN}ms`);
+      }
       if (i === retries) throw e;
       const ms = baseMs * Math.pow(2, i);
       logger.warn(`ollama retry ${i+1}/${retries} after ${ms}ms: ${e.message}`);
@@ -77,6 +95,8 @@ async function ollamaHealth() {
 }
 
 // ── plan (main LLM call) ───────────────────────────────────────────────────
+function recordSuccess() { failures = 0; circuitUntil = 0; }
+
 async function plan(transcript, rid) {
   const url = config.OLLAMA_URL + "/api/chat";
   logger.debug("ollama request: " + config.MODEL, rid);
@@ -101,6 +121,7 @@ async function plan(transcript, rid) {
     return r.json();
   }, 3, 2000);
 
+  recordSuccess();
   const toolCount = response.message?.tool_calls?.length || 0;
   logger.debug(`ollama response: ${toolCount} tool call(s)`, rid);
   return response;
